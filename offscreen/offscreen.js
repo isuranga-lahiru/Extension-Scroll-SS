@@ -7,7 +7,7 @@
  * - Returns blob URL to service worker for download
  */
 
-'use strict';
+"use strict";
 
 const MEMORY_CEILING_BYTES = 250 * 1024 * 1024; // 250 MB
 
@@ -22,56 +22,65 @@ const sessions = new Map();
 // ──────────────────────────────────────────────
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (sender.id !== chrome.runtime.id) return;
-  if (msg._target !== 'offscreen') return;
+  if (msg._target !== "offscreen") return;
 
   switch (msg.type) {
-
-    case 'INIT_SESSION': {
+    case "INIT_SESSION": {
       const { captureId, format, jpgQuality, viewport, dpr } = msg;
-      if (!captureId) { sendResponse({ ok: false, error: 'Missing captureId' }); return; }
+      if (!captureId) {
+        sendResponse({ ok: false, error: "Missing captureId" });
+        return;
+      }
       sessions.set(captureId, {
         captureId,
-        format:     format     || 'png',
+        format: format || "png",
         jpgQuality: jpgQuality || 0.92,
-        viewport:   viewport   || { width: 1280, height: 720 },
-        dpr:        dpr        || 1,
-        frames:     [],
-        totalH:     0,
-        viewportH:  viewport ? viewport.height : 720,
+        viewport: viewport || { width: 1280, height: 720 },
+        dpr: dpr || 1,
+        frames: [],
+        totalH: 0,
+        viewportH: viewport ? viewport.height : 720,
       });
       sendResponse({ ok: true });
       break;
     }
 
-    case 'ADD_FRAME': {
-      const { captureId, frameIndex, dataUrl, scrollY, viewportH, totalH } = msg;
+    case "ADD_FRAME": {
+      const { captureId, frameIndex, dataUrl, scrollY, viewportH, totalH } =
+        msg;
       const session = sessions.get(captureId);
-      if (!session) { sendResponse({ ok: false, error: 'No session' }); return; }
+      if (!session) {
+        sendResponse({ ok: false, error: "No session" });
+        return;
+      }
       session.frames.push({ frameIndex, dataUrl, scrollY });
-      session.totalH    = Math.max(session.totalH, totalH || 0);
+      session.totalH = Math.max(session.totalH, totalH || 0);
       session.viewportH = viewportH || session.viewportH;
       sendResponse({ ok: true });
       break;
     }
 
-    case 'FINALIZE_SESSION': {
+    case "FINALIZE_SESSION": {
       const { captureId } = msg;
       const session = sessions.get(captureId);
-      if (!session) { sendResponse({ ok: false, error: 'No session to finalize' }); return; }
+      if (!session) {
+        sendResponse({ ok: false, error: "No session to finalize" });
+        return;
+      }
 
       finalizeSession(session)
-        .then(result => {
+        .then((result) => {
           sessions.delete(captureId);
           sendResponse(result);
         })
-        .catch(err => {
+        .catch((err) => {
           sessions.delete(captureId);
           sendResponse({ ok: false, error: err.message });
         });
       return true; // async
     }
 
-    case 'ABORT_SESSION': {
+    case "ABORT_SESSION": {
       const { captureId } = msg;
       sessions.delete(captureId);
       sendResponse({ ok: true });
@@ -87,9 +96,10 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 // Finalize: stitch, then export
 // ──────────────────────────────────────────────
 async function finalizeSession(session) {
-  const { format, frames, viewport, dpr, jpgQuality, totalH, viewportH } = session;
+  const { format, frames, viewport, dpr, jpgQuality, totalH, viewportH } =
+    session;
 
-  if (!frames.length) throw new Error('No frames captured');
+  if (!frames.length) throw new Error("No frames captured");
 
   // Sort frames by scrollY position
   frames.sort((a, b) => a.frameIndex - b.frameIndex);
@@ -97,7 +107,7 @@ async function finalizeSession(session) {
   // Stitch all frames into one full-height canvas
   const canvas = await stitchFrames(frames, viewport, dpr, totalH, viewportH);
 
-  if (format === 'pdf') {
+  if (format === "pdf") {
     return await exportPDF(canvas, dpr);
   } else {
     return await exportImage(canvas, format, jpgQuality);
@@ -110,23 +120,23 @@ async function finalizeSession(session) {
 // eliminating gaps caused by overlapping scroll positions.
 // ──────────────────────────────────────────────
 async function stitchFrames(frames, viewport, dpr, totalH, viewportH) {
-  const physWidth   = Math.round(viewport.width * dpr);
+  const physWidth = Math.round(viewport.width * dpr);
   // Derive actual canvas height from the frames we captured
   // (accounts for pages shorter than estimated totalH)
-  const lastFrame   = frames[frames.length - 1];
-  const physHeight  = Math.round((lastFrame.scrollY + viewportH) * dpr);
+  const lastFrame = frames[frames.length - 1];
+  const physHeight = Math.round((lastFrame.scrollY + viewportH) * dpr);
 
   // Memory guard
   const estBytes = physWidth * physHeight * 4;
   if (estBytes > MEMORY_CEILING_BYTES) {
     throw new Error(
       `Too large to export as a single image (est. ${Math.round(estBytes / 1024 / 1024)} MB). ` +
-      `Use PDF format or capture fewer frames.`
+        `Use PDF format or capture fewer frames.`,
     );
   }
 
   const canvas = new OffscreenCanvas(physWidth, physHeight);
-  const ctx    = canvas.getContext('2d');
+  const ctx = canvas.getContext("2d");
 
   const physViewportH = Math.round(viewportH * dpr);
 
@@ -137,8 +147,8 @@ async function stitchFrames(frames, viewport, dpr, totalH, viewportH) {
   for (const frame of frames) {
     const bitmap = await decodeBitmap(frame.dataUrl);
 
-    const frameTopPx    = Math.round(frame.scrollY * dpr); // where in the full page this frame starts
-    const frameBottomPx = frameTopPx + physViewportH;      // where it ends (physical px)
+    const frameTopPx = Math.round(frame.scrollY * dpr); // where in the full page this frame starts
+    const frameBottomPx = frameTopPx + physViewportH; // where it ends (physical px)
 
     // The bitmap may extend below the actual page bottom — clamp
     const drawTo = Math.min(frameBottomPx, physHeight);
@@ -153,10 +163,14 @@ async function stitchFrames(frames, viewport, dpr, totalH, viewportH) {
       // drawImage(bitmap, sx, sy, sWidth, sHeight, dx, dy, dWidth, dHeight)
       ctx.drawImage(
         bitmap,
-        0, srcSkip,          // source: start at srcSkip rows into the frame
-        physWidth, newRows,  // source: take newRows rows
-        0, paintedUpTo,      // dest: place at current watermark
-        physWidth, newRows   // dest: same height (1:1 pixel mapping)
+        0,
+        srcSkip, // source: start at srcSkip rows into the frame
+        physWidth,
+        newRows, // source: take newRows rows
+        0,
+        paintedUpTo, // dest: place at current watermark
+        physWidth,
+        newRows, // dest: same height (1:1 pixel mapping)
       );
       paintedUpTo += newRows;
     }
@@ -172,11 +186,12 @@ async function stitchFrames(frames, viewport, dpr, totalH, viewportH) {
 // IMAGE EXPORT (PNG / JPG) from a stitched canvas
 // ──────────────────────────────────────────────
 async function exportImage(canvas, format, jpgQuality) {
-  const mimeType = format === 'jpg' ? 'image/jpeg' : 'image/png';
-  const quality  = format === 'jpg' ? jpgQuality : undefined;
-  const blob     = await canvas.convertToBlob({ type: mimeType, quality });
-  const blobUrl  = URL.createObjectURL(blob);
-  return { ok: true, blobUrl, mimeType, ext: format === 'jpg' ? 'jpg' : 'png' };
+  const mimeType = format === "jpg" ? "image/jpeg" : "image/png";
+  const quality = format === "jpg" ? jpgQuality : undefined;
+  const blob = await canvas.convertToBlob({ type: mimeType, quality });
+  // Use FileReader to get a base64 data URL — no URL.createObjectURL needed
+  const dataUrl = await blobToDataUrl(blob);
+  return { ok: true, dataUrl, mimeType, ext: format === "jpg" ? "jpg" : "png" };
 }
 
 // ──────────────────────────────────────────────
@@ -185,8 +200,11 @@ async function exportImage(canvas, format, jpgQuality) {
 // Uses jsPDF with unit:'px' and format:[canvas.width, canvas.height].
 // ──────────────────────────────────────────────
 async function exportPDF(canvas, dpr) {
-  if (typeof window.jspdf === 'undefined' && typeof window.jsPDF === 'undefined') {
-    throw new Error('jsPDF not loaded');
+  if (
+    typeof window.jspdf === "undefined" &&
+    typeof window.jsPDF === "undefined"
+  ) {
+    throw new Error("jsPDF not loaded");
   }
 
   const { jsPDF } = window.jspdf || window;
@@ -195,45 +213,47 @@ async function exportPDF(canvas, dpr) {
   const H = canvas.height;
 
   // Convert the full stitched canvas to a JPEG data URL
-  const blob       = await canvas.convertToBlob({ type: 'image/jpeg', quality: 0.92 });
+  const blob = await canvas.convertToBlob({
+    type: "image/jpeg",
+    quality: 0.92,
+  });
   const imgDataUrl = await blobToDataUrl(blob);
 
   // Create a PDF page that is EXACTLY the size of the canvas in pixels
   // so there are zero margins, zero blank areas.
   const pdf = new jsPDF({
-    orientation: W >= H ? 'landscape' : 'portrait',
-    unit:        'px',
-    format:      [W, H],   // <-- exact canvas dimensions, no standard paper size
-    compress:    true,
+    orientation: W >= H ? "landscape" : "portrait",
+    unit: "px",
+    format: [W, H], // <-- exact canvas dimensions, no standard paper size
+    compress: true,
   });
 
   const pdfW = pdf.internal.pageSize.getWidth();
   const pdfH = pdf.internal.pageSize.getHeight();
 
   // Draw the image at (0, 0) filling the entire page — no margins, perfect fit
-  pdf.addImage(imgDataUrl, 'JPEG', 0, 0, pdfW, pdfH, undefined, 'FAST');
+  pdf.addImage(imgDataUrl, "JPEG", 0, 0, pdfW, pdfH, undefined, "FAST");
 
-  const pdfArrayBuffer = pdf.output('arraybuffer');
-  const pdfBlob = new Blob([pdfArrayBuffer], { type: 'application/pdf' });
-  const blobUrl = URL.createObjectURL(pdfBlob);
+  // Use jsPDF's built-in datauristring output — no Blob or URL.createObjectURL needed
+  const dataUrl = pdf.output("datauristring");
 
-  return { ok: true, blobUrl, mimeType: 'application/pdf', ext: 'pdf' };
+  return { ok: true, dataUrl, mimeType: "application/pdf", ext: "pdf" };
 }
 
 // ──────────────────────────────────────────────
 // Helpers
 // ──────────────────────────────────────────────
 async function decodeBitmap(dataUrl) {
-  const res    = await fetch(dataUrl);
-  const blob   = await res.blob();
+  const res = await fetch(dataUrl);
+  const blob = await res.blob();
   return createImageBitmap(blob);
 }
 
 function blobToDataUrl(blob) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    reader.onload  = () => resolve(reader.result);
-    reader.onerror = () => reject(new Error('FileReader failed'));
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(new Error("FileReader failed"));
     reader.readAsDataURL(blob);
   });
 }

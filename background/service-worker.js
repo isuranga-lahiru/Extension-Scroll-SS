@@ -231,15 +231,15 @@ async function runCapture({ captureId, tabId, user, settings }) {
     }
 
     // 7. Download
-    const { blobUrl, mimeType, ext } = finalResp;
+    // dataUrl is a base64 data URL returned by the offscreen doc
+    // (avoids URL.createObjectURL / URL.revokeObjectURL which don't exist in SW)
+    const { dataUrl, mimeType, ext } = finalResp;
     const now = new Date();
     const ts  = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}_${pad(now.getHours())}-${pad(now.getMinutes())}-${pad(now.getSeconds())}`;
     const filename = `FullPageCapture_${ts}.${ext}`;
 
-    await chrome.downloads.download({ url: blobUrl, filename, saveAs: true });
-
-    // Revoke after a small delay
-    setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
+    await chrome.downloads.download({ url: dataUrl, filename, saveAs: true });
+    // No URL.revokeObjectURL needed — data URLs are self-contained strings
 
     await sendToTab(tabId, { type: 'CAPTURE_DONE', captureId });
     sessions.delete(captureId);

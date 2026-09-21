@@ -93,7 +93,7 @@
           </button>
         </div>
         <div id="pdfTooltip" class="pro-tooltip hidden">
-          Upgrade to Pro to unlock PDF export
+          🔒 PDF export requires Pro — enter your license key below.
         </div>
       </section>
 
@@ -127,8 +127,8 @@
           <div class="setting-row">
             <label class="setting-label"
               >Scroll Delay
-              <span class="setting-val" id="scrollDelayVal">200ms</span></label
-            >
+              <span class="setting-val" id="scrollDelayVal">200ms</span>
+            </label>
             <input
               type="range"
               class="slider"
@@ -142,8 +142,8 @@
           <div class="setting-row" id="jpgQualityRow">
             <label class="setting-label"
               >JPG Quality
-              <span class="setting-val" id="jpgQualityVal">92%</span></label
-            >
+              <span class="setting-val" id="jpgQualityVal">92%</span>
+            </label>
             <input
               type="range"
               class="slider"
@@ -162,6 +162,40 @@
               <input type="checkbox" id="mockProToggle" />
               <span class="toggle-track"></span>
             </label>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── License Key Activation ── -->
+      <section class="section license-section" id="licenseSection">
+        <label class="section-label">Pro License</label>
+
+        <!-- Free user: show key input + upgrade button -->
+        <div id="licenseInputArea">
+          <div class="license-row">
+            <input
+              type="text"
+              id="licenseKeyInput"
+              class="license-input"
+              placeholder="Enter license key (e.g. PRO-XXXX)"
+              autocomplete="off"
+              spellcheck="false"
+            />
+            <button class="license-activate-btn" id="licenseActivateBtn">
+              Activate
+            </button>
+          </div>
+          <div id="licenseMsg" class="license-msg hidden"></div>
+          <button class="upgrade-btn" id="upgradeBtn">⭐ Upgrade to Pro</button>
+        </div>
+
+        <!-- Pro user: show active badge + deactivate -->
+        <div id="licenseActiveArea" class="hidden">
+          <div class="license-active-badge">
+            <span>✅ Pro License Active</span>
+            <button class="license-deactivate-btn" id="licenseDeactivateBtn">
+              Deactivate
+            </button>
           </div>
         </div>
       </section>
