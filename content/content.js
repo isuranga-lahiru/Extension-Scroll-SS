@@ -177,25 +177,26 @@
         const { scrollY, scrollDelayMs } = msg;
         window.scrollTo({ top: scrollY, left: 0, behavior: 'instant' });
 
-        // 1. Wait for scroll settle + lazy-load
-        // 2. Hide overlay, then wait 150ms — a hard guarantee the browser
-        //    has fully painted the hidden state before we signal the SW to capture.
-        // 3. Only then send response; SW calls captureVisibleTab immediately after.
         setTimeout(() => {
-          if (overlayEl) overlayEl.style.visibility = 'hidden';
+          // DEFINITIVE FIX: remove overlay from DOM entirely.
+          // An element not in the DOM cannot appear in any screenshot — no timing races.
+          if (overlayEl && overlayEl.parentNode) {
+            overlayEl.parentNode.removeChild(overlayEl);
+          }
+          // 60ms micro-settle (for compositor to flush the removal)
           setTimeout(() => {
             sendResponse({ ok: true, metrics: getMetrics() });
-          }, 150);
+          }, 60);
         }, Math.max(100, Math.min(800, scrollDelayMs || 200)));
         return true;
       }
 
       case 'PREPARE_FRAME': {
-        // Frame 0 (no scroll): hide overlay, wait 150ms paint guarantee, then respond.
-        if (overlayEl) overlayEl.style.visibility = 'hidden';
-        setTimeout(() => {
-          sendResponse({ ok: true });
-        }, 150);
+        // Frame 0 (no scroll): remove overlay from DOM, then respond after micro-settle.
+        if (overlayEl && overlayEl.parentNode) {
+          overlayEl.parentNode.removeChild(overlayEl);
+        }
+        setTimeout(() => sendResponse({ ok: true }), 60);
         return true;
       }
 
@@ -219,14 +220,19 @@
       }
 
       case 'HIDE_OVERLAY': {
-        if (overlayEl) overlayEl.style.visibility = 'hidden';
-        setTimeout(() => { sendResponse({ ok: true }); }, 150);
+        // Remove from DOM — guaranteed not in any screenshot
+        if (overlayEl && overlayEl.parentNode) {
+          overlayEl.parentNode.removeChild(overlayEl);
+        }
+        setTimeout(() => sendResponse({ ok: true }), 60);
         return true;
       }
 
       case 'SHOW_OVERLAY': {
-        // Restore pill visibility so user can still interact with Stop button
-        if (overlayEl) overlayEl.style.visibility = '';
+        // Re-attach overlay so user can see/use the Stop button between frames
+        if (overlayEl && !overlayEl.parentNode) {
+          document.documentElement.appendChild(overlayEl);
+        }
         sendResponse({ ok: true });
         break;
       }
